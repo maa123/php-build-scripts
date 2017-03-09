@@ -1,5 +1,5 @@
 ﻿param (
-    [string]$target = "x86",
+    [string]$target = $(if((Get-WmiObject -Class Win32_ComputerSystem).SystemType -match "(x64)"){ "x64" }else{ "x86" }),
     [switch]$debug = $false,
     [string]$path = $(Split-Path $script:MyInvocation.MyCommand.Path)
 )
