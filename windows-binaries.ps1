@@ -1,5 +1,5 @@
 ﻿param (
-	[string]$target = "x86",
+    [string]$target = "x86",
     [switch]$debug = $false,
     [string]$path = $(Split-Path $script:MyInvocation.MyCommand.Path)
 )
