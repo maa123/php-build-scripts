@@ -918,6 +918,7 @@ $HAVE_MYSQLI \
 --with-zend-vm=$ZEND_VM \
 --enable-opcache=yes \
 --enable-weakref \
+--with-openssl \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 echo -n " compiling..."
 if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
