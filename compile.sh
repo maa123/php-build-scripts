@@ -1,52 +1,70 @@
 #!/bin/bash
-[ -z "$PHP_VERSION" ] && PHP_VERSION="7.0.16"
+[ -z "$PHP_VERSION" ] && PHP_VERSION="7.3.11"
 
 PHP_IS_BETA="no"
 
-ZEND_VM="GOTO"
-
 ZLIB_VERSION="1.2.11"
-MBEDTLS_VERSION="2.2.1"
-LIBMCRYPT_VERSION="2.5.8"
-GMP_VERSION="6.1.0"
-GMP_VERSION_DIR="6.1.0"
-CURL_VERSION="curl-7_47_1"
+GMP_VERSION="6.1.2"
+CURL_VERSION="curl-7_66_0"
 READLINE_VERSION="6.3"
 NCURSES_VERSION="6.0"
-PHPNCURSES_VERSION="1.0.2"
-PTHREADS_VERSION="3.1.6"
-XDEBUG_VERSION="2.5.0"
-PHP_POCKETMINE_VERSION="0.0.6"
-#UOPZ_VERSION="2.0.4"
-WEAKREF_VERSION="0.3.3"
-PHPYAML_VERSION="2.0.0"
-YAML_VERSION="0.1.7"
-YAML_VERSION_ANDROID="0.1.7"
-#PHPLEVELDB_VERSION="0.1.4"
-PHPLEVELDB_VERSION="2963815338edfebc5ab8c512bcd2b72f0357ac6e"
-#LEVELDB_VERSION="1.18"
-LEVELDB_VERSION="b633756b51390a9970efde9068f60188ca06a724" #Check MacOS
-LIBXML_VERSION="2.9.1"
-LIBPNG_VERSION="1.6.28"
-BCOMPILER_VERSION="1.0.2"
+YAML_VERSION="0.2.2"
+LEVELDB_VERSION="10f59b56bec1db3ffe42ff265afe22182073e0e2"
+LIBXML_VERSION="2.9.9"
+LIBPNG_VERSION="1.6.37"
+LIBJPEG_VERSION="9c"
+OPENSSL_VERSION="1.1.0l" #1.1.1a has some segfault issues
+LIBZIP_VERSION="1.5.2"
+
+EXT_NCURSES_VERSION="1.0.2"
+EXT_PTHREADS_VERSION="2e568b2edd0ae9a40df425f7ae77d6608e387706"
+EXT_YAML_VERSION="2.0.4"
+EXT_LEVELDB_VERSION="9bcae79f71b81a5c3ea6f67e45ae9ae9fb2775a5"
+EXT_POCKETMINE_CHUNKUTILS_VERSION="master"
+EXT_XDEBUG_VERSION="2.7.2"
+EXT_IGBINARY_VERSION="3.0.1"
+EXT_DS_VERSION="2ddef84d3e9391c37599cb716592184315e23921"
+EXT_CRYPTO_VERSION="5f26ac91b0ba96742cc6284cd00f8db69c3788b2"
+EXT_RECURSIONGUARD_VERSION="d6ed5da49178762ed81dc0184cd34ff4d3254720"
+
+function write_out {
+	echo "[$1] $2"
+}
+
+function write_error {
+	write_out ERROR "$1" >&2
+}
 
 echo "[PocketMine] PHP compiler for Linux, MacOS and Android"
 DIR="$(pwd)"
 date > "$DIR/install.log" 2>&1
-#trap "echo \"# \$(eval echo \$BASH_COMMAND)\" >> \"$DIR/install.log\" 2>&1" DEBUG
+
 uname -a >> "$DIR/install.log" 2>&1
-echo "[INFO] Checking dependecies"
-type make >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"make\""; read -p "Press [Enter] to continue..."; exit 1; }
-type autoconf >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"autoconf\""; read -p "Press [Enter] to continue..."; exit 1; }
-type automake >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"automake\""; read -p "Press [Enter] to continue..."; exit 1; }
-type libtool >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"libtool\" or \"libtool-bin\""; read -p "Press [Enter] to continue..."; exit 1; }
-type m4 >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"m4\""; read -p "Press [Enter] to continue..."; exit 1; }
-type wget >> "$DIR/install.log" 2>&1 || type curl >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"wget\" or \"curl\""; read -p "Press [Enter] to continue..."; exit 1; }
-type getconf >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"getconf\""; read -p "Press [Enter] to continue..."; exit 1; }
-type gzip >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"gzip\""; read -p "Press [Enter] to continue..."; exit 1; }
-type bzip2 >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"bzip2\""; read -p "Press [Enter] to continue..."; exit 1; }
-type bison >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"bison\""; read -p "Press [Enter] to continue..."; exit 1; }
-type g++ >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"g++\""; read -p "Press [Enter] to continue..."; exit 1; }
+echo "[INFO] Checking dependencies"
+
+COMPILE_SH_DEPENDENCIES=( make autoconf automake m4 getconf gzip bzip2 bison g++ git cmake pkg-config)
+ERRORS=0
+for(( i=0; i<${#COMPILE_SH_DEPENDENCIES[@]}; i++ ))
+do
+	type "${COMPILE_SH_DEPENDENCIES[$i]}" >> "$DIR/install.log" 2>&1 || { write_error "Please install \"${COMPILE_SH_DEPENDENCIES[$i]}\""; ((ERRORS++)); }
+done
+
+type wget >> "$DIR/install.log" 2>&1 || type curl >> "$DIR/install.log" || { echo >&2 "[ERROR] Please install \"wget\" or \"curl\""; ((ERRORS++)); }
+
+if [ "$(uname -s)" == "Darwin" ]; then
+	type glibtool >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install GNU libtool"; ((ERRORS++)); }
+	export LIBTOOL=glibtool
+	export LIBTOOLIZE=glibtoolize
+else
+	type libtool >> "$DIR/install.log" 2>&1 || { echo >&2 "[ERROR] Please install \"libtool\" or \"libtool-bin\""; ((ERRORS++)); }
+	export LIBTOOL=libtool
+	export LIBTOOLIZE=libtoolize
+fi
+
+if [ $ERRORS -ne 0 ]; then
+	read -p "Press [Enter] to continue..."
+	exit 1
+fi
 
 #Needed to use aliases
 shopt -s expand_aliases
@@ -56,9 +74,10 @@ if [ $? -eq 0 ]; then
 else
 	type curl >> "$DIR/install.log" 2>&1
 	if [ $? -eq 0 ]; then
-		alias download_file="curl --insecure --silent --location"
+		alias download_file="curl --insecure --silent --show-error --location --globoff"
 	else
 		echo "error, curl or wget not found"
+		exit 1
 	fi
 fi
 
@@ -78,20 +97,24 @@ fi
 COMPILE_FOR_ANDROID=no
 HAVE_MYSQLI="--enable-embedded-mysqli --enable-mysqlnd --with-mysqli=mysqlnd"
 COMPILE_TARGET=""
-COMPILE_CURL="default"
 COMPILE_FANCY="no"
-HAS_ZEPHIR="no"
 IS_CROSSCOMPILE="no"
 IS_WINDOWS="no"
 DO_OPTIMIZE="no"
+OPTIMIZE_TARGET=""
 DO_STATIC="no"
+DO_CLEANUP="yes"
 COMPILE_DEBUG="no"
 COMPILE_LEVELDB="no"
+HAVE_VALGRIND="--without-valgrind"
 FLAGS_LTO=""
 
 LD_PRELOAD=""
 
-while getopts "::t:oj:srcdlxzff:" OPTION; do
+COMPILE_POCKETMINE_CHUNKUTILS="no"
+COMPILE_GD="no"
+
+while getopts "::t:oj:srdlxzff:ugnv" OPTION; do
 
 	case $OPTION in
 		t)
@@ -107,12 +130,11 @@ while getopts "::t:oj:srcdlxzff:" OPTION; do
 			COMPILE_FANCY="yes"
 			;;
 		d)
-			echo "[opt] Will compile profiler and xdebug"
+			echo "[opt] Will compile profiler and xdebug, will not remove sources"
 			COMPILE_DEBUG="yes"
-			;;
-		c)
-			echo "[opt] Will force compile cURL"
-			COMPILE_CURL="yes"
+			DO_CLEANUP="no"
+			CFLAGS="$CFLAGS -g"
+			CXXFLAGS="$CXXFLAGS -g"
 			;;
 		x)
 			echo "[opt] Doing cross-compile"
@@ -127,27 +149,26 @@ while getopts "::t:oj:srcdlxzff:" OPTION; do
 			DO_STATIC="yes"
 			CFLAGS="$CFLAGS -static"
 			;;
-		z)
-			echo "[opt] Will add PocketMine C PHP extension"
-			HAS_ZEPHIR="yes"
-			;;
 		f)
 			echo "[opt] Enabling abusive optimizations..."
 			DO_OPTIMIZE="yes"
-			#FLAGS_LTO="-fvisibility=hidden -flto"
-			ffast_math="-fno-math-errno -funsafe-math-optimizations -fno-signed-zeros -fno-trapping-math -ffinite-math-only -fno-rounding-math -fno-signaling-nans" #workaround SQLite3 fail
-			CFLAGS="$CFLAGS -O2 -DSQLITE_HAVE_ISNAN $ffast_math -ftree-vectorize -fomit-frame-pointer -funswitch-loops -fivopts"
-			if [ "$COMPILE_TARGET" != "mac" ] && [ "$COMPILE_TARGET" != "mac32" ] && [ "$COMPILE_TARGET" != "mac64" ]; then
-				CFLAGS="$CFLAGS -funsafe-loop-optimizations -fpredictive-commoning -ftracer -ftree-loop-im -frename-registers -fcx-limited-range"
-			fi
-
-			if [ "$OPTARG" == "arm" ]; then
-				CFLAGS="$CFLAGS -mfpu=vfp"
-			elif [ "$OPTARG" == "x86_64" ]; then
-				CFLAGS="$CFLAGS -mmmx -msse -msse2 -msse3 -mfpmath=sse -free -msahf -ftree-parallelize-loops=4"
-			elif [ "$OPTARG" == "x86" ]; then
-				CFLAGS="$CFLAGS -mmmx -msse -msse2 -mfpmath=sse -m128bit-long-double -malign-double -ftree-parallelize-loops=4"
-			fi
+			OPTIMIZE_TARGET="$OPTARG"
+			;;
+		u)
+			echo "[opt] Will compile with PocketMine-ChunkUtils C extension for Anvil"
+			COMPILE_POCKETMINE_CHUNKUTILS="yes"
+			;;
+		g)
+			echo "[opt] Will enable GD2"
+			COMPILE_GD="yes"
+			;;
+		n)
+			echo "[opt] Will not remove sources after completing compilation"
+			DO_CLEANUP="no"
+			;;
+		v)
+			echo "[opt] Will enable valgrind support in PHP"
+			HAVE_VALGRIND="--with-valgrind"
 			;;
 		\?)
 			echo "Invalid option: -$OPTION$OPTARG" >&2
@@ -156,72 +177,22 @@ while getopts "::t:oj:srcdlxzff:" OPTION; do
 	esac
 done
 
-#TODO Uncomment this when php-leveldb supports PHP7 properly
-#if [ $(gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$/&00/') -gt 40800 ]; then
-	#COMPILE_LEVELDB="yes"
-#fi
-COMPILE_LEVELDB="no"
-
 GMP_ABI=""
 TOOLCHAIN_PREFIX=""
+OPENSSL_TARGET=""
 
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	export CROSS_COMPILER="$PATH"
-	if [[ "$COMPILE_TARGET" == "win" ]] || [[ "$COMPILE_TARGET" == "win32" ]]; then
-		TOOLCHAIN_PREFIX="i686-w64-mingw32"
-		[ -z "$march" ] && march=i686;
-		[ -z "$mtune" ] && mtune=pentium4;
-		CFLAGS="$CFLAGS -mconsole"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --target=$TOOLCHAIN_PREFIX --build=$TOOLCHAIN_PREFIX"
-		IS_WINDOWS="yes"
-		GMP_ABI="32"
-		echo "[INFO] Cross-compiling for Windows 32-bit"
-	elif [ "$COMPILE_TARGET" == "win64" ]; then
+	if [[ "$COMPILE_TARGET" == "win" ]] || [[ "$COMPILE_TARGET" == "win64" ]]; then
 		TOOLCHAIN_PREFIX="x86_64-w64-mingw32"
 		[ -z "$march" ] && march=x86_64;
 		[ -z "$mtune" ] && mtune=nocona;
 		CFLAGS="$CFLAGS -mconsole"
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --target=$TOOLCHAIN_PREFIX --build=$TOOLCHAIN_PREFIX"
 		IS_WINDOWS="yes"
+		OPENSSL_TARGET="mingw64"
 		GMP_ABI="64"
 		echo "[INFO] Cross-compiling for Windows 64-bit"
-	elif [ "$COMPILE_TARGET" == "android" ] || [ "$COMPILE_TARGET" == "android-armv6" ]; then
-		COMPILE_FOR_ANDROID=yes
-		[ -z "$march" ] && march=armv6;
-		[ -z "$mtune" ] && mtune=arm1136jf-s;
-		TOOLCHAIN_PREFIX="arm-linux-musleabi"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --enable-static-link --disable-ipv6"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static"
-		echo "[INFO] Cross-compiling for Android ARMv6"
-	elif [ "$COMPILE_TARGET" == "android-armv7" ]; then
-		COMPILE_FOR_ANDROID=yes
-		[ -z "$march" ] && march=armv7-a;
-		[ -z "$mtune" ] && mtune=cortex-a8;
-		TOOLCHAIN_PREFIX="arm-linux-musleabi"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --enable-static-link --disable-ipv6"
-		CFLAGS="-static $CFLAGS"
-		CXXFLAGS="-static $CXXFLAGS"
-		LDFLAGS="-static"
-		echo "[INFO] Cross-compiling for Android ARMv7"
-	elif [ "$COMPILE_TARGET" == "rpi" ]; then
-		TOOLCHAIN_PREFIX="arm-linux-gnueabihf"
-		[ -z "$march" ] && march=armv6zk;
-		[ -z "$mtune" ] && mtune=arm1176jzf-s;
-		if [ "$DO_OPTIMIZE" == "yes" ]; then
-			CFLAGS="$CFLAGS -mfloat-abi=hard -mfpu=vfp"
-		fi
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		[ -z "$CFLAGS" ] && CFLAGS="-uclibc";
-		echo "[INFO] Cross-compiling for Raspberry Pi ARMv6zk hard float"
-	elif [ "$COMPILE_TARGET" == "armv7" ]; then
-		TOOLCHAIN_PREFIX="arm-linux-gnueabihf"
-		[ -z "$march" ] && march=armv7-a;
-		[ -z "$mtune" ] && mtune=cortex-a8;
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
-		[ -z "$CFLAGS" ] && CFLAGS="-uclibc";
-		echo "[INFO] Cross-compiling for ARMv7"
 	elif [ "$COMPILE_TARGET" == "mac" ]; then
 		[ -z "$march" ] && march=prescott;
 		[ -z "$mtune" ] && mtune=generic;
@@ -230,90 +201,82 @@ if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
 		#zlib doesn't use the correct ranlib
 		RANLIB=$TOOLCHAIN_PREFIX-ranlib
-		LEVELDB_VERSION="1bd4a335d620b395b0a587b15804f9b2ab3c403f"
 		CFLAGS="$CFLAGS -Qunused-arguments -Wno-error=unused-command-line-argument-hard-error-in-future"
 		ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future"
+		OPENSSL_TARGET="darwin64-x86_64-cc"
 		GMP_ABI="32"
 		echo "[INFO] Cross-compiling for Intel MacOS"
-	elif [ "$COMPILE_TARGET" == "ios" ] || [ "$COMPILE_TARGET" == "ios-armv6" ]; then
-		[ -z "$march" ] && march=armv6;
-		[ -z "$mtune" ] && mtune=arm1176jzf-s;
-		TOOLCHAIN_PREFIX="arm-apple-darwin10"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --target=$TOOLCHAIN_PREFIX -miphoneos-version-min=4.2"
-	elif [ "$COMPILE_TARGET" == "ios-armv7" ]; then
-		[ -z "$march" ] && march=armv7-a;
-		[ -z "$mtune" ] && mtune=cortex-a8;
-		TOOLCHAIN_PREFIX="arm-apple-darwin10"
-		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX --target=$TOOLCHAIN_PREFIX -miphoneos-version-min=4.2"
-		if [ "$DO_OPTIMIZE" == "yes" ]; then
-			CFLAGS="$CFLAGS -mfpu=neon"
-		fi
+	elif [ "$COMPILE_TARGET" == "android-aarch64" ]; then
+		COMPILE_FOR_ANDROID=yes
+		[ -z "$march" ] && march="armv8-a";
+		[ -z "$mtune" ] && mtune=generic;
+		TOOLCHAIN_PREFIX="aarch64-linux-musl"
+		CONFIGURE_FLAGS="--host=$TOOLCHAIN_PREFIX"
+		CFLAGS="-static $CFLAGS"
+		CXXFLAGS="-static $CXXFLAGS"
+		LDFLAGS="-static -static-libgcc -Wl,-static"
+		OPENSSL_TARGET="linux-aarch64"
+		echo "[INFO] Cross-compiling for Android ARMv8 (aarch64)"
+	#TODO: add cross-compile for aarch64 platforms (ios, rpi)
 	else
-		echo "Please supply a proper platform [android android-armv6 android-armv7 rpi mac ios ios-armv6 ios-armv7 win win32 win64] to cross-compile"
+		echo "Please supply a proper platform [mac win win64 android-aarch64] to cross-compile"
 		exit 1
 	fi
-elif [[ "$COMPILE_TARGET" == "linux" ]] || [[ "$COMPILE_TARGET" == "linux32" ]]; then
-	[ -z "$march" ] && march=i686;
-	[ -z "$mtune" ] && mtune=pentium4;
-	CFLAGS="$CFLAGS -m32";
-	GMP_ABI="32"
-	echo "[INFO] Compiling for Linux x86"
-elif [ "$COMPILE_TARGET" == "linux64" ]; then
-	[ -z "$march" ] && march=x86-64;
-	[ -z "$mtune" ] && mtune=nocona;
-	CFLAGS="$CFLAGS -m64"
-	GMP_ABI="64"
-	echo "[INFO] Compiling for Linux x86_64"
-elif [ "$COMPILE_TARGET" == "rpi" ]; then
-	[ -z "$march" ] && march=armv6zk;
-	[ -z "$mtune" ] && mtune=arm1176jzf-s;
-	CFLAGS="$CFLAGS -mfloat-abi=hard -mfpu=vfp";
-	echo "[INFO] Compiling for Raspberry Pi ARMv6zk hard float"
-elif [ "$COMPILE_TARGET" == "armv7" ]; then
-	[ -z "$march" ] && march=armv7-a;
-	[ -z "$mtune" ] && mtune=cortex-a8;
-	CFLAGS="$CFLAGS -mfpu=vfp";
-	echo "[INFO] Compiling for ARMv7"
-elif [[ "$COMPILE_TARGET" == "mac" ]] || [[ "$COMPILE_TARGET" == "mac32" ]]; then
-	[ -z "$march" ] && march=prescott;
-	[ -z "$mtune" ] && mtune=generic;
-	CFLAGS="$CFLAGS -m32 -arch i386 -fomit-frame-pointer -mmacosx-version-min=10.7";
-	if [ "$DO_STATIC" == "no" ]; then
-		LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-		export DYLD_LIBRARY_PATH="@loader_path/../lib"
+else
+	if [[ "$COMPILE_TARGET" == "" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+		COMPILE_TARGET="mac"
 	fi
-	LEVELDB_VERSION="1bd4a335d620b395b0a587b15804f9b2ab3c403f"
-	CFLAGS="$CFLAGS -Qunused-arguments -Wno-error=unused-command-line-argument-hard-error-in-future"
-	ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future"
-	GMP_ABI="32"
-	echo "[INFO] Compiling for Intel MacOS x86"
-elif [ "$COMPILE_TARGET" == "mac64" ]; then
-	[ -z "$march" ] && march=core2;
-	[ -z "$mtune" ] && mtune=generic;
-	CFLAGS="$CFLAGS -m64 -arch x86_64 -fomit-frame-pointer -mmacosx-version-min=10.7";
-	if [ "$DO_STATIC" == "no" ]; then
-		LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
-		export DYLD_LIBRARY_PATH="@loader_path/../lib"
-	fi
-	LEVELDB_VERSION="1bd4a335d620b395b0a587b15804f9b2ab3c403f"
-	CFLAGS="$CFLAGS -Qunused-arguments -Wno-error=unused-command-line-argument-hard-error-in-future"
-	ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future"
-	GMP_ABI="64"
-	CXXFLAGS="$CXXFLAGS -stdlib=libc++"
-	echo "[INFO] Compiling for Intel MacOS x86_64"
-elif [ "$COMPILE_TARGET" == "ios" ]; then
-	[ -z "$march" ] && march=armv7-a;
-	[ -z "$mtune" ] && mtune=cortex-a8;
-	echo "[INFO] Compiling for iOS ARMv7"
-elif [ -z "$CFLAGS" ]; then
-	if [ `getconf LONG_BIT` == "64" ]; then
-		echo "[INFO] Compiling for current machine using 64-bit"
-		CFLAGS="-m64 $CFLAGS"
+	if [[ "$COMPILE_TARGET" == "linux" ]] || [[ "$COMPILE_TARGET" == "linux64" ]]; then
+		[ -z "$march" ] && march=x86-64;
+		[ -z "$mtune" ] && mtune=nocona;
+		CFLAGS="$CFLAGS -m64"
 		GMP_ABI="64"
-	else
-		echo "[INFO] Compiling for current machine using 32-bit"
-		CFLAGS="-m32 $CFLAGS"
-		GMP_ABI="32"
+		OPENSSL_TARGET="linux-x86_64"
+		echo "[INFO] Compiling for Linux x86_64"
+	elif [[ "$COMPILE_TARGET" == "mac" ]] || [[ "$COMPILE_TARGET" == "mac64" ]]; then
+		[ -z "$march" ] && march=core2;
+		[ -z "$mtune" ] && mtune=generic;
+		[ -z "$MACOSX_DEPLOYMENT_TARGET" ] && export MACOSX_DEPLOYMENT_TARGET=10.9;
+		CFLAGS="$CFLAGS -m64 -arch x86_64 -fomit-frame-pointer -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+		LDFLAGS="$LDFLAGS -mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+		if [ "$DO_STATIC" == "no" ]; then
+			LDFLAGS="$LDFLAGS -Wl,-rpath,@loader_path/../lib";
+			export DYLD_LIBRARY_PATH="@loader_path/../lib"
+		fi
+		CFLAGS="$CFLAGS -Qunused-arguments -Wno-error=unused-command-line-argument-hard-error-in-future"
+		ARCHFLAGS="-Wno-error=unused-command-line-argument-hard-error-in-future"
+		GMP_ABI="64"
+		OPENSSL_TARGET="darwin64-x86_64-cc"
+		echo "[INFO] Compiling for Intel MacOS x86_64"
+	#TODO: add aarch64 platforms (ios, android, rpi)
+	elif [ -z "$CFLAGS" ]; then
+		if [ `getconf LONG_BIT` == "64" ]; then
+			echo "[INFO] Compiling for current machine using 64-bit"
+			if [ "$(uname -m)" != "aarch64" ]; then
+				CFLAGS="-m64 $CFLAGS"
+			fi
+			GMP_ABI="64"
+		else
+			echo "[ERROR] PocketMine-MP is no longer supported on 32-bit systems"
+			exit 1
+		fi
+	fi
+fi
+
+if [ "$DO_OPTIMIZE" != "no" ]; then
+	#FLAGS_LTO="-fvisibility=hidden -flto"
+	ffast_math="-fno-math-errno -funsafe-math-optimizations -fno-signed-zeros -fno-trapping-math -ffinite-math-only -fno-rounding-math -fno-signaling-nans" #workaround SQLite3 fail
+	CFLAGS="$CFLAGS -O2 -DSQLITE_HAVE_ISNAN $ffast_math -ftree-vectorize -fomit-frame-pointer -funswitch-loops -fivopts"
+	if [ "$COMPILE_TARGET" != "mac" ] && [ "$COMPILE_TARGET" != "mac32" ] && [ "$COMPILE_TARGET" != "mac64" ]; then
+		CFLAGS="$CFLAGS -funsafe-loop-optimizations -fpredictive-commoning -ftracer -ftree-loop-im -frename-registers -fcx-limited-range"
+	fi
+
+	if [ "$OPTIMIZE_TARGET" == "arm" ]; then
+		CFLAGS="$CFLAGS -mfpu=vfp"
+	elif [ "$OPTIMIZE_TARGET" == "x86_64" ]; then
+		CFLAGS="$CFLAGS -mmmx -msse -msse2 -msse3 -mfpmath=sse -free -msahf -ftree-parallelize-loops=4"
+	elif [ "$OPTIMIZE_TARGET" == "x86" ]; then
+		CFLAGS="$CFLAGS -mmmx -msse -msse2 -mfpmath=sse -m128bit-long-double -malign-double -ftree-parallelize-loops=4"
 	fi
 fi
 
@@ -377,12 +340,12 @@ mkdir -m 0755 bin/php7 >> "$DIR/install.log" 2>&1
 cd install_data
 set -e
 
-#PHP 5
+#PHP 7
 echo -n "[PHP] downloading $PHP_VERSION..."
 
 if [[ "$PHP_IS_BETA" == "yes" ]]; then
-	download_file "https://downloads.php.net/~ab/php-$PHP_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv php-$PHP_VERSION php
+	download_file "https://github.com/php/php-src/archive/php-$PHP_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+	mv php-src-php-$PHP_VERSION php
 else
 	download_file "http://php.net/get/php-$PHP_VERSION.tar.gz/from/this/mirror" | tar -zx >> "$DIR/install.log" 2>&1
 	mv php-$PHP_VERSION php
@@ -416,9 +379,7 @@ if [ "$COMPILE_FANCY" == "yes" ]; then
 	make -j $THREADS >> "$DIR/install.log" 2>&1
 	echo -n " installing..."
 	make install >> "$DIR/install.log" 2>&1
-	echo -n " cleaning..."
 	cd ..
-	rm -r -f ./ncurses
 	echo " done!"
 	HAVE_NCURSES="--with-ncurses=$DIR/bin/php7"
 
@@ -448,16 +409,13 @@ if [ "$COMPILE_FANCY" == "yes" ]; then
 		echo -n " disabling..."
 		HAVE_READLINE="--without-readline"
 	fi
-	echo -n " cleaning..."
 	cd ..
-	rm -r -f ./readline
 	echo " done!"
 	set -e
 else
 	HAVE_NCURSES="--without-ncurses"
 	HAVE_READLINE="--without-readline"
 fi
-
 
 if [ "$DO_STATIC" == "yes" ]; then
 	EXTRA_FLAGS="--static"
@@ -477,9 +435,7 @@ echo -n " compiling..."
 make -j $THREADS >> "$DIR/install.log" 2>&1
 echo -n " installing..."
 make install >> "$DIR/install.log" 2>&1
-echo -n " cleaning..."
 cd ..
-rm -r -f ./zlib
 	if [ "$DO_STATIC" != "yes" ]; then
 		rm -f "$DIR/bin/php7/lib/libz.a"
 	fi
@@ -490,32 +446,6 @@ export ac_cv_func_malloc_0_nonnull=yes
 export jm_cv_func_working_realloc=yes
 export ac_cv_func_realloc_0_nonnull=yes
 
-#mcrypt
-echo -n "[mcrypt] downloading $LIBMCRYPT_VERSION..."
-download_file "http://sourceforge.net/projects/mcrypt/files/Libmcrypt/$LIBMCRYPT_VERSION/libmcrypt-$LIBMCRYPT_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-mv libmcrypt-$LIBMCRYPT_VERSION libmcrypt
-echo -n " checking..."
-cd libmcrypt
-rm -f config.guess
-download_file "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" > config.guess
-rm -f config.sub
-download_file "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=HEAD" > config.sub
-RANLIB=$RANLIB ./configure --prefix="$DIR/bin/php7" \
---disable-posix-threads \
---enable-static \
---disable-shared \
-$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
-sed -i=".backup" 's,/* #undef malloc */,#undef malloc,' config.h
-sed -i=".backup" 's,/* #undef realloc */,#undef realloc,' config.h
-echo -n " compiling..."
-make -j $THREADS >> "$DIR/install.log" 2>&1
-echo -n " installing..."
-make install >> "$DIR/install.log" 2>&1
-echo -n " cleaning..."
-cd ..
-rm -r -f ./libmcrypt
-echo " done!"
-
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	EXTRA_FLAGS=""
 else
@@ -525,7 +455,7 @@ fi
 #GMP
 echo -n "[GMP] downloading $GMP_VERSION..."
 download_file "https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.bz2" | tar -jx >> "$DIR/install.log" 2>&1
-mv gmp-$GMP_VERSION_DIR gmp
+mv gmp-$GMP_VERSION gmp
 echo -n " checking..."
 cd gmp
 RANLIB=$RANLIB ./configure --prefix="$DIR/bin/php7" \
@@ -538,98 +468,86 @@ echo -n " compiling..."
 make -j $THREADS >> "$DIR/install.log" 2>&1
 echo -n " installing..."
 make install >> "$DIR/install.log" 2>&1
-echo -n " cleaning..."
 cd ..
-rm -r -f ./gmp
 echo " done!"
 
-if [ "$(uname -s)" != "Darwin" ] || [ "$IS_CROSSCOMPILE" == "yes" ] || [ "$COMPILE_CURL" == "yes" ]; then
-	#if [ "$DO_STATIC" == "yes" ]; then
-	#	EXTRA_FLAGS=""
-	#else
-	#	EXTRA_FLAGS="shared no-static"
-	#fi
 
-	#mbed TLS
-	echo -n "[mbed TLS] downloading $MBEDTLS_VERSION..."
-	download_file "https://tls.mbed.org/download/mbedtls-${MBEDTLS_VERSION}-gpl.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv mbedtls-${MBEDTLS_VERSION} mbedtls
-	echo -n " checking..."
-	cd mbedtls
-	sed -i=".backup" 's,DESTDIR=/usr/local,,g' Makefile
-	echo -n " compiling..."
-	DESTDIR="$DIR/bin/php7" RANLIB=$RANLIB make -j $THREADS lib >> "$DIR/install.log" 2>&1
-	echo -n " installing..."
-	DESTDIR="$DIR/bin/php7" make install >> "$DIR/install.log" 2>&1
-	echo -n " cleaning..."
-	cd ..
-	rm -r -f ./mbedtls
-	echo " done!"
+#OpenSSL
+OPENSSL_CMD="./config"
+if [ "$OPENSSL_TARGET" != "" ]; then
+	OPENSSL_CMD="./Configure $OPENSSL_TARGET"
 fi
 
-if [ "$(uname -s)" == "Darwin" ] && [ "$IS_CROSSCOMPILE" != "yes" ] && [ "$COMPILE_CURL" != "yes" ]; then
-   HAVE_CURL="shared,/usr"
+export PKG_CONFIG_PATH="$DIR/bin/php7/lib/pkgconfig"
+WITH_OPENSSL="--with-openssl=$DIR/bin/php7"
+echo -n "[OpenSSL] downloading $OPENSSL_VERSION..."
+download_file "http://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+mv openssl-$OPENSSL_VERSION openssl
+
+echo -n " checking..."
+cd openssl
+RANLIB=$RANLIB $OPENSSL_CMD \
+--prefix="$DIR/bin/php7" \
+--openssldir="$DIR/bin/php7" \
+no-asm \
+no-hw \
+no-shared \
+no-threads \
+no-engine >> "$DIR/install.log" 2>&1
+
+echo -n " compiling..."
+make -j $THREADS >> "$DIR/install.log" 2>&1
+echo -n " installing..."
+make install_sw >> "$DIR/install.log" 2>&1
+cd ..
+echo " done!"
+
+
+
+if [ "$DO_STATIC" == "yes" ]; then
+	EXTRA_FLAGS="--enable-static --disable-shared"
 else
-	if [ "$DO_STATIC" == "yes" ]; then
-		EXTRA_FLAGS="--enable-static --disable-shared"
-	else
-		EXTRA_FLAGS="--disable-static --enable-shared"
-	fi
-
-	#curl
-	echo -n "[cURL] downloading $CURL_VERSION..."
-	download_file "https://github.com/bagder/curl/archive/$CURL_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv curl-$CURL_VERSION curl
-	echo -n " checking..."
-	cd curl
-	./buildconf --force >> "$DIR/install.log" 2>&1
-	RANLIB=$RANLIB ./configure --disable-dependency-tracking \
-	--enable-ipv6 \
-	--enable-optimize \
-	--enable-http \
-	--enable-ftp \
-	--disable-dict \
-	--enable-file \
-	--without-librtmp \
-	--disable-gopher \
-	--disable-imap \
-	--disable-pop3 \
-	--disable-rtsp \
-	--disable-smtp \
-	--disable-telnet \
-	--disable-tftp \
-	--disable-ldap \
-	--disable-ldaps \
-	--without-libidn \
-	--with-zlib="$DIR/bin/php7" \
-	--without-ssl \
-	--with-mbedtls="$DIR/bin/php7" \
-	--enable-threaded-resolver \
-	--prefix="$DIR/bin/php7" \
-	$EXTRA_FLAGS \
-	$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
-	echo -n " compiling..."
-	make -j $THREADS >> "$DIR/install.log" 2>&1
-	echo -n " installing..."
-	make install >> "$DIR/install.log" 2>&1
-	echo -n " cleaning..."
-	cd ..
-	rm -r -f ./curl
-	echo " done!"
-	HAVE_CURL="$DIR/bin/php7"
+	EXTRA_FLAGS="--disable-static --enable-shared"
 fi
 
-#bcompiler
-#echo -n "[bcompiler] downloading $BCOMPILER_VERSION..."
-#download_file "http://pecl.php.net/get/bcompiler-$BCOMPILER_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-#mv bcompiler-$BCOMPILER_VERSION "$DIR/install_data/php/ext/bcompiler"
-#echo " done!"
-
-#PHP ncurses
-#echo -n "[PHP ncurses] downloading $PHPNCURSES_VERSION..."
-#download_file "http://pecl.php.net/get/ncurses-$PHPNCURSES_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-#mv ncurses-$PHPNCURSES_VERSION "$DIR/install_data/php/ext/ncurses"
-#echo " done!"
+#curl
+echo -n "[cURL] downloading $CURL_VERSION..."
+download_file "https://github.com/curl/curl/archive/$CURL_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+mv curl-$CURL_VERSION curl
+echo -n " checking..."
+cd curl
+./buildconf --force >> "$DIR/install.log" 2>&1
+RANLIB=$RANLIB ./configure --disable-dependency-tracking \
+--enable-ipv6 \
+--enable-optimize \
+--enable-http \
+--enable-ftp \
+--disable-dict \
+--enable-file \
+--without-librtmp \
+--disable-gopher \
+--disable-imap \
+--disable-pop3 \
+--disable-rtsp \
+--disable-smtp \
+--disable-telnet \
+--disable-tftp \
+--disable-ldap \
+--disable-ldaps \
+--without-libidn \
+--without-libidn2 \
+--with-zlib="$DIR/bin/php7" \
+--with-ssl="$DIR/bin/php7" \
+--enable-threaded-resolver \
+--prefix="$DIR/bin/php7" \
+$EXTRA_FLAGS \
+$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+echo -n " compiling..."
+make -j $THREADS >> "$DIR/install.log" 2>&1
+echo -n " installing..."
+make install >> "$DIR/install.log" 2>&1
+cd ..
+echo " done!"
 
 
 if [ "$DO_STATIC" == "yes" ]; then
@@ -639,16 +557,10 @@ else
 fi
 #YAML
 echo -n "[YAML] downloading $YAML_VERSION..."
-if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
-	download_file "https://github.com/yaml/libyaml/archive/$YAML_VERSION_ANDROID.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv libyaml-$YAML_VERSION yaml
-	cd yaml
-	./bootstrap >> "$DIR/install.log" 2>&1
-else
-	download_file "http://pyyaml.org/download/libyaml/yaml-$YAML_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv yaml-$YAML_VERSION yaml
-	cd yaml
-fi
+download_file "https://github.com/yaml/libyaml/archive/$YAML_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+mv libyaml-$YAML_VERSION yaml
+cd yaml
+./bootstrap >> "$DIR/install.log" 2>&1
 
 echo -n " checking..."
 
@@ -661,31 +573,32 @@ echo -n " compiling..."
 make -j $THREADS all >> "$DIR/install.log" 2>&1
 echo -n " installing..."
 make install >> "$DIR/install.log" 2>&1
-echo -n " cleaning..."
 cd ..
-rm -r -f ./yaml
 echo " done!"
 
 if [ "$COMPILE_LEVELDB" == "yes" ]; then
 	#LevelDB
 	echo -n "[LevelDB] downloading $LEVELDB_VERSION..."
-	download_file "https://github.com/PocketMine/leveldb/archive/$LEVELDB_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+	download_file "https://github.com/pmmp/leveldb-mcpe/archive/$LEVELDB_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
 	#download_file "https://github.com/Mojang/leveldb-mcpe/archive/$LEVELDB_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv leveldb-$LEVELDB_VERSION leveldb
+	mv leveldb-mcpe-$LEVELDB_VERSION leveldb
 	echo -n " checking..."
 	cd leveldb
 	echo -n " compiling..."
 	if [ "$DO_STATIC" == "yes" ]; then
-		CFLAGS="$CFLAGS -I$DIR/bin/php7/include" CXXFLAGS="$CXXFLAGS -I$DIR/bin/php7/include" LDFLAGS="$LDFLAGS -L$DIR/bin/php7/lib" make -j $THREADS libleveldb.a >> "$DIR/install.log" 2>&1
+		LEVELDB_TARGET="staticlibs"
 	else
-		CFLAGS="$CFLAGS -I$DIR/bin/php7/include" CXXFLAGS="$CXXFLAGS -I$DIR/bin/php7/include" LDFLAGS="$LDFLAGS -L$DIR/bin/php7/lib" make -j $THREADS >> "$DIR/install.log" 2>&1
+		LEVELDB_TARGET="sharedlibs"
 	fi
+	INSTALL_PATH="$DIR/bin/php7/lib" CFLAGS="$CFLAGS -I$DIR/bin/php7/include" CXXFLAGS="$CXXFLAGS -I$DIR/bin/php7/include" LDFLAGS="$LDFLAGS -L$DIR/bin/php7/lib" make $LEVELDB_TARGET -j $THREADS >> "$DIR/install.log" 2>&1
 	echo -n " installing..."
-	cp libleveldb* "$DIR/bin/php7/lib/"
+	if [ "$DO_STATIC" == "yes" ]; then
+		cp out-static/lib*.a "$DIR/bin/php7/lib/"
+	else
+		cp out-shared/libleveldb.* "$DIR/bin/php7/lib/"
+	fi
 	cp -r include/leveldb "$DIR/bin/php7/include/leveldb"
-	echo -n " cleaning..."
 	cd ..
-	rm -r -f ./leveldb
 	echo " done!"
 fi
 
@@ -695,123 +608,173 @@ else
 	EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
 fi
 
-#libpng
-echo -n "[libpng] downloading $LIBPNG_VERSION..."
-download_file "https://sourceforge.net/projects/libpng/files/libpng16/$LIBPNG_VERSION/libpng-$LIBPNG_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-mv libpng-$LIBPNG_VERSION libpng
+if [ "$COMPILE_GD" == "yes" ]; then
+	#libpng
+	echo -n "[libpng] downloading $LIBPNG_VERSION..."
+	download_file "https://sourceforge.net/projects/libpng/files/libpng16/$LIBPNG_VERSION/libpng-$LIBPNG_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+	mv libpng-$LIBPNG_VERSION libpng
+	echo -n " checking..."
+	cd libpng
+	LDFLAGS="$LDFLAGS -L${DIR}/bin/php7/lib" CPPFLAGS="$CPPFLAGS -I${DIR}/bin/php7/include" RANLIB=$RANLIB ./configure \
+	--prefix="$DIR/bin/php7" \
+	$EXTRA_FLAGS \
+	$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+	echo -n " compiling..."
+	make -j $THREADS >> "$DIR/install.log" 2>&1
+	echo -n " installing..."
+	make install >> "$DIR/install.log" 2>&1
+	cd ..
+	echo " done!"
+
+	#libjpeg
+	echo -n "[libjpeg] downloading $LIBJPEG_VERSION..."
+	download_file "http://ijg.org/files/jpegsrc.v$LIBJPEG_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+	mv jpeg-$LIBJPEG_VERSION libjpeg
+	echo -n " checking..."
+	cd libjpeg
+	LDFLAGS="$LDFLAGS -L${DIR}/bin/php7/lib" CPPFLAGS="$CPPFLAGS -I${DIR}/bin/php7/include" RANLIB=$RANLIB ./configure \
+	--prefix="$DIR/bin/php7" \
+	$EXTRA_FLAGS \
+	$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+	echo -n " compiling..."
+	make -j $THREADS >> "$DIR/install.log" 2>&1
+	echo -n " installing..."
+	make install >> "$DIR/install.log" 2>&1
+	cd ..
+	echo " done!"
+	HAS_GD="--with-gd"
+	HAS_LIBPNG="--with-png-dir=${DIR}/bin/php7"
+	HAS_LIBJPEG="--with-jpeg-dir=${DIR}/bin/php7"
+else
+	HAS_GD=""
+	HAS_LIBPNG=""
+	HAS_LIBJPEG=""
+fi
+
+#libxml2
+echo -n "[libxml] downloading $LIBXML_VERSION... "
+download_file "https://gitlab.gnome.org/GNOME/libxml2/-/archive/v$LIBXML_VERSION/libxml2-v$LIBXML_VERSION.tar.gz" | tar -xz >> "$DIR/install.log" 2>&1
+mv libxml2-v$LIBXML_VERSION libxml2
+echo -n "checking... "
+cd libxml2
+if [ "$DO_STATIC" == "yes" ]; then
+	EXTRA_FLAGS="--enable-shared=no --enable-static=yes"
+else
+	EXTRA_FLAGS="--enable-shared=yes --enable-static=no"
+fi
+sed -i.bak 's{libtoolize --version{"$LIBTOOLIZE" --version{' autogen.sh #needed for glibtool on macos
+./autogen.sh --prefix="$DIR/bin/php7" \
+	--without-iconv \
+	--without-python \
+	--with-zlib="$DIR/bin/php7" \
+	--config-cache \
+	$EXTRA_FLAGS \
+	$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+echo -n "compiling... "
+make -j $THREADS >> "$DIR/install.log" 2>&1
+echo -n "installing... "
+make install >> "$DIR/install.log" 2>&1
+cd ..
+echo "done!"
+
+
+
+#libzip
+if [ "$DO_STATIC" == "yes" ]; then
+	CMAKE_LIBZIP_EXTRA_FLAGS="-DBUILD_SHARED_LIBS=OFF"
+fi
+echo -n "[libzip] downloading $LIBZIP_VERSION..."
+download_file "https://libzip.org/download/libzip-$LIBZIP_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
+mv libzip-$LIBZIP_VERSION libzip >> "$DIR/install.log" 2>&1
 echo -n " checking..."
-cd libpng
-LDFLAGS="$LDFLAGS -L${DIR}/bin/php7/lib" CPPFLAGS="$CPPFLAGS -I${DIR}/bin/php7/include" RANLIB=$RANLIB ./configure \
---prefix="$DIR/bin/php7" \
-$EXTRA_FLAGS \
-$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+cd libzip
+cmake . -DCMAKE_PREFIX_PATH="$DIR/bin/php7" -DCMAKE_INSTALL_PREFIX="$DIR/bin/php7" -DCMAKE_INSTALL_LIBDIR=lib $CMAKE_LIBZIP_EXTRA_FLAGS -DBUILD_TOOLS=OFF -DBUILD_REGRESS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_DOC=OFF >> "$DIR/install.log" 2>&1
 echo -n " compiling..."
 make -j $THREADS >> "$DIR/install.log" 2>&1
 echo -n " installing..."
 make install >> "$DIR/install.log" 2>&1
-echo -n " cleaning..."
 cd ..
-rm -r -f ./libpng
 echo " done!"
-
-#libxml2
-#echo -n "[libxml2] downloading $LIBXML_VERSION..."
-#download_file "ftp://xmlsoft.org/libxml2/libxml2-$LIBXML_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-#mv libxml2-$LIBXML_VERSION libxml2
-#echo -n " checking..."
-#cd libxml2
-#RANLIB=$RANLIB ./configure \
-#--disable-ipv6 \
-#--with-libz="$DIR/bin/php7" \
-#--prefix="$DIR/bin/php7" \
-#$EXTRA_FLAGS \
-#$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
-#echo -n " compiling..."
-#make -j $THREADS >> "$DIR/install.log" 2>&1
-#echo -n " installing..."
-#make install >> "$DIR/install.log" 2>&1
-#echo -n " cleaning..."
-#cd ..
-#rm -r -f ./libxml2
-#echo " done!"
-
-
-
 
 
 
 # PECL libraries
 
-if [[ "$DO_STATIC" != "yes" ]] && [[ "$COMPILE_DEBUG" == "yes" ]]; then
-	#xdebug
-	echo -n "[PHP xdebug] downloading $XDEBUG_VERSION..."
-	download_file "http://pecl.php.net/get/xdebug-$XDEBUG_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv xdebug-$XDEBUG_VERSION "$DIR/install_data/php/ext/xdebug"
+# 1: extension name
+# 2: extension version
+# 3: URL to get .tar.gz from
+# 4: Name of extracted directory to move
+function get_extension_tar_gz {
+	echo -n "  $1: downloading $2..."
+	download_file "$3" | tar -zx >> "$DIR/install.log" 2>&1
+	mv "$4" "$DIR/install_data/php/ext/$1"
 	echo " done!"
-	HAS_XDEBUG="--enable-xdebug=shared"
-else
-	HAS_XDEBUG=""
+}
+
+# 1: extension name
+# 2: extension version
+# 3: github user name
+# 4: github repo name
+# 5: version prefix (optional)
+function get_github_extension {
+	get_extension_tar_gz "$1" "$2" "https://github.com/$3/$4/archive/$5$2.tar.gz" "$4-$2"
+}
+
+# 1: extension name
+# 2: extension version
+function get_pecl_extension {
+	get_extension_tar_gz "$1" "$2" "http://pecl.php.net/get/$1-$2.tgz" "$1-$2"
+}
+
+echo "[PHP] Downloading additional extensions..."
+
+if [[ "$DO_STATIC" != "yes" ]] && [[ "$COMPILE_DEBUG" == "yes" ]]; then
+	get_pecl_extension "xdebug" "$EXT_XDEBUG_VERSION"
 fi
 
 #TODO Uncomment this when it's ready for PHP7
 #if [ "$COMPILE_DEBUG" == "yes" ]; then
-#	#profiler
-#	echo -n "[PHP profiler] downloading latest..."
-#	download_file "https://github.com/krakjoe/profiler/archive/master.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-#	mv profiler-master "$DIR/install_data/php/ext/profiler"
-#	echo " done!"
+#   get_github_extension "profiler" "master" "krakjoe" "profiler"
 #	HAS_PROFILER="--enable-profiler --with-profiler-max-frames=1000"
 #else
 #	HAS_PROFILER=""
 #fi
 
-#pthreads
-echo -n "[PHP pthreads] downloading $PTHREADS_VERSION..."
-download_file "http://pecl.php.net/get/pthreads-$PTHREADS_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-#download_file "https://github.com/krakjoe/pthreads/archive/$PTHREADS_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-mv pthreads-$PTHREADS_VERSION "$DIR/install_data/php/ext/pthreads"
-echo " done!"
+#get_pecl_extension "ncurses" "$EXT_NCURSES_VERSION"
 
-HAS_POCKETMINE=""
-if [ "$HAS_ZEPHIR" == "yes" ]; then
-	echo -n "[C PocketMine extension] downloading $PHP_POCKETMINE_VERSION..."
-	download_file https://github.com/PocketMine/PocketMine-MP-Zephir/archive/$PHP_POCKETMINE_VERSION.tar.gz | tar -zx >> "$DIR/install.log" 2>&1
-	mv PocketMine-MP-Zephir-$PHP_POCKETMINE_VERSION/pocketmine/ext "$DIR/install_data/php/ext/pocketmine"
-	rm -r PocketMine-MP-Zephir-$PHP_POCKETMINE_VERSION/
-	HAS_POCKETMINE="--enable-pocketmine"
-	echo " done!"
-fi
+get_github_extension "pthreads" "$EXT_PTHREADS_VERSION" "pmmp" "pthreads" #"v" needed for release tags because github removes the "v"
+#get_pecl_extension "pthreads" "$EXT_PTHREADS_VERSION"
 
-#uopz
-#echo -n "[PHP uopz] downloading $UOPZ_VERSION..."
-#download_file "http://pecl.php.net/get/uopz-$UOPZ_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-#mv uopz-$UOPZ_VERSION "$DIR/install_data/php/ext/uopz"
-#echo " done!"
+get_github_extension "yaml" "$EXT_YAML_VERSION" "php" "pecl-file_formats-yaml"
+#get_pecl_extension "yaml" "$EXT_YAML_VERSION"
 
-#WeakRef
-echo -n "[PHP Weakref] downloading $WEAKREF_VERSION..."
-download_file "http://pecl.php.net/get/Weakref-$WEAKREF_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-mv Weakref-$WEAKREF_VERSION "$DIR/install_data/php/ext/weakref"
-echo " done!"
+get_github_extension "igbinary" "$EXT_IGBINARY_VERSION" "igbinary" "igbinary"
 
-#PHP YAML
-echo -n "[PHP YAML] downloading $PHPYAML_VERSION..."
-#download_file "http://pecl.php.net/get/yaml-$PHPYAML_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-#mv yaml-$PHPYAML_VERSION "$DIR/install_data/php/ext/yaml"
-download_file "https://github.com/php/pecl-file_formats-yaml/archive/$PHPYAML_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-mv pecl-file_formats-yaml-$PHPYAML_VERSION "$DIR/install_data/php/ext/yaml"
+get_github_extension "ds" "$EXT_DS_VERSION" "php-ds" "ext-ds"
+
+get_github_extension "recursionguard" "$EXT_RECURSIONGUARD_VERSION" "pmmp" "ext-recursionguard"
+
+echo -n "  crypto: downloading $EXT_CRYPTO_VERSION..."
+git clone https://github.com/bukka/php-crypto.git "$DIR/install_data/php/ext/crypto" >> "$DIR/install.log" 2>&1
+cd "$DIR/install_data/php/ext/crypto"
+git checkout "$EXT_CRYPTO_VERSION" >> "$DIR/install.log" 2>&1
+git submodule update --init --recursive >> "$DIR/install.log" 2>&1
+cd "$DIR/install_data"
 echo " done!"
 
 if [ "$COMPILE_LEVELDB" == "yes" ]; then
 	#PHP LevelDB
-	echo -n "[PHP LevelDB] downloading $PHPLEVELDB_VERSION..."
-	#download_file "http://pecl.php.net/get/leveldb-$PHPLEVELDB_VERSION.tgz" | tar -zx >> "$DIR/install.log" 2>&1
-	download_file "https://github.com/PocketMine/php-leveldb/archive/$PHPLEVELDB_VERSION.tar.gz" | tar -zx >> "$DIR/install.log" 2>&1
-	mv php-leveldb-$PHPLEVELDB_VERSION "$DIR/install_data/php/ext/leveldb"
-	echo " done!"
+	get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "reeze" "php-leveldb"
 	HAS_LEVELDB=--with-leveldb="$DIR/bin/php7"
 else
 	HAS_LEVELDB=""
+fi
+
+if [ "$COMPILE_POCKETMINE_CHUNKUTILS" == "yes" ]; then
+	get_github_extension "pocketmine-chunkutils" "$EXT_POCKETMINE_CHUNKUTILS_VERSION" "dktapps" "PocketMine-C-ChunkUtils"
+	HAS_POCKETMINE_CHUNKUTILS=--enable-pocketmine-chunkutils
+else
+	HAS_POCKETMINE_CHUNKUTILS=""
 fi
 
 
@@ -828,7 +791,24 @@ cd php
 rm -f ./aclocal.m4 >> "$DIR/install.log" 2>&1
 rm -rf ./autom4te.cache/ >> "$DIR/install.log" 2>&1
 rm -f ./configure >> "$DIR/install.log" 2>&1
+
 ./buildconf --force >> "$DIR/install.log" 2>&1
+
+#hack for curl with pkg-config (ext/curl doesn't give --static to pkg-config on static builds)
+if [ "$DO_STATIC" == "yes" ]; then
+	if [ -z "$PKG_CONFIG" ]; then
+		PKG_CONFIG="$(which pkg-config)" || true
+	fi
+	if [ ! -z "$PKG_CONFIG" ]; then
+		#only export this if pkg-config exists, otherwise leave it (it'll fall back to curl-config)
+
+		echo '#!/bin/sh' > "$DIR/install_data/pkg-config-wrapper"
+		echo 'exec '$PKG_CONFIG' "$@" --static' >> "$DIR/install_data/pkg-config-wrapper"
+		chmod +x "$DIR/install_data/pkg-config-wrapper"
+		export PKG_CONFIG="$DIR/install_data/pkg-config-wrapper"
+	fi
+fi
+
 if [ "$IS_CROSSCOMPILE" == "yes" ]; then
 	sed -i=".backup" 's/pthreads_working=no/pthreads_working=yes/' ./configure
 	if [ "$IS_WINDOWS" != "yes" ]; then
@@ -867,34 +847,36 @@ else
 	HAS_DEBUG="--disable-debug"
 fi
 
-RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$DIR/bin/php7" \
+RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLAGS="$LDFLAGS $FLAGS_LTO" ./configure $PHP_OPTIMIZATION --prefix="$DIR/bin/php7" \
 --exec-prefix="$DIR/bin/php7" \
---with-curl="$HAVE_CURL" \
+--with-curl="$DIR/bin/php7" \
 --with-zlib="$DIR/bin/php7" \
 --with-zlib-dir="$DIR/bin/php7" \
---with-mcrypt="$DIR/bin/php7" \
 --with-gmp="$DIR/bin/php7" \
---with-png-dir="$DIR/bin/php7" \
 --with-yaml="$DIR/bin/php7" \
---with-gd \
+--with-openssl="$DIR/bin/php7" \
+--with-libzip="$DIR/bin/php7" \
+$HAS_LIBPNG \
+$HAS_LIBJPEG \
+$HAS_GD \
 $HAVE_NCURSES \
 $HAVE_READLINE \
 $HAS_LEVELDB \
-$HAS_POCKETMINE \
-$HAS_XDEBUG \
 $HAS_PROFILER \
 $HAS_DEBUG \
+$HAS_POCKETMINE_CHUNKUTILS \
 --enable-mbstring \
 --enable-calendar \
 --enable-pthreads \
 --disable-fileinfo \
---disable-libxml \
---disable-xml \
---disable-dom \
---disable-simplexml \
---disable-xmlreader \
---disable-xmlwriter \
+--with-libxml-dir="$DIR/bin/php7" \
+--enable-xml \
+--enable-dom \
+--enable-simplexml \
+--enable-xmlreader \
+--enable-xmlwriter \
 --disable-cgi \
+--disable-phpdbg \
 --disable-session \
 --disable-pdo \
 --without-pear \
@@ -915,10 +897,13 @@ $HAVE_MYSQLI \
 --enable-cli \
 --enable-zip \
 --enable-ftp \
---with-zend-vm=$ZEND_VM \
---enable-opcache=yes \
---enable-weakref \
 --with-openssl \
+--enable-opcache=no \
+--enable-igbinary \
+--enable-ds \
+--with-crypto \
+--enable-recursionguard \
+$HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 echo -n " compiling..."
 if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
@@ -938,46 +923,48 @@ make install >> "$DIR/install.log" 2>&1
 if [[ "$(uname -s)" == "Darwin" ]] && [[ "$IS_CROSSCOMPILE" != "yes" ]]; then
 	set +e
 	install_name_tool -delete_rpath "$DIR/bin/php7/lib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libz.1.dylib" "@loader_path/../lib/libz.1.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libcurl.4.dylib" "@loader_path/../lib/libcurl.4.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libyaml-0.2.dylib" "@loader_path/../lib/libyaml-0.2.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libreadline.$READLINE_VERSION.dylib" "@loader_path/../lib/libreadline.$READLINE_VERSION.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libhistory.$READLINE_VERSION.dylib" "@loader_path/../lib/libhistory.$READLINE_VERSION.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libform.6.0.dylib" "@loader_path/../lib/libform.6.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libmenu.6.0.dylib" "@loader_path/../lib/libmenu.6.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libncurses.6.0.dylib" "@loader_path/../lib/libncurses.6.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libpanel.6.0.dylib" "@loader_path/../lib/libpanel.6.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libleveldb.dylib.1.18" "@loader_path/../lib/libleveldb.dylib.1.18" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	install_name_tool -change "$DIR/bin/php7/lib/libpng16.16.dylib" "@loader_path/../lib/libpng16.16.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
 
-	#install_name_tool -change "$DIR/bin/php7/lib/libssl.1.0.0.dylib" "@loader_path/../lib/libssl.1.0.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	#install_name_tool -change "$DIR/bin/php7/lib/libssl.1.0.0.dylib" "@loader_path/../lib/libssl.1.0.0.dylib" "$DIR/bin/php7/lib/libcurl.4.dylib" >> "$DIR/install.log" 2>&1
-	#install_name_tool -change "$DIR/bin/php7/lib/libcrypto.1.0.0.dylib" "@loader_path/../lib/libcrypto.1.0.0.dylib" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
-	#install_name_tool -change "$DIR/bin/php7/lib/libcrypto.1.0.0.dylib" "@loader_path/../lib/libcrypto.1.0.0.dylib" "$DIR/bin/php7/lib/libcurl.4.dylib" >> "$DIR/install.log" 2>&1
-	#chmod 0777 "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
-	#install_name_tool -change "$DIR/bin/php7/lib/libcrypto.1.0.0.dylib" "@loader_path/libcrypto.1.0.0.dylib" "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
-	#chmod 0755 "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
+	IFS=$'\n' OTOOL_OUTPUT=($(otool -L "$DIR/bin/php7/bin/php"))
+
+	for (( i=0; i<${#OTOOL_OUTPUT[@]}; i++ ))
+		do
+		CURRENT_DYLIB_NAME=$(echo ${OTOOL_OUTPUT[$i]} | sed 's# (compatibility version .*##' | xargs)
+		if [[ $CURRENT_DYLIB_NAME == "$DIR/bin/php7/lib/"*".dylib"* ]]; then
+			NEW_DYLIB_NAME=$(echo "$CURRENT_DYLIB_NAME" | sed "s{$DIR/bin/php7/lib{@loader_path/../lib{" | xargs)
+			install_name_tool -change "$CURRENT_DYLIB_NAME" "$NEW_DYLIB_NAME" "$DIR/bin/php7/bin/php" >> "$DIR/install.log" 2>&1
+		fi
+	done
+
+	install_name_tool -change "$DIR/bin/php7/lib/libssl.1.0.0.dylib" "@loader_path/../lib/libssl.1.0.0.dylib" "$DIR/bin/php7/lib/libcurl.4.dylib" >> "$DIR/install.log" 2>&1
+	install_name_tool -change "$DIR/bin/php7/lib/libcrypto.1.0.0.dylib" "@loader_path/../lib/libcrypto.1.0.0.dylib" "$DIR/bin/php7/lib/libcurl.4.dylib" >> "$DIR/install.log" 2>&1
+	chmod 0777 "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
+	install_name_tool -change "$DIR/bin/php7/lib/libcrypto.1.0.0.dylib" "@loader_path/libcrypto.1.0.0.dylib" "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
+	chmod 0755 "$DIR/bin/php7/lib/libssl.1.0.0.dylib" >> "$DIR/install.log" 2>&1
 	set -e
 fi
 
 echo -n " generating php.ini..."
 trap - DEBUG
 TIMEZONE=$(date +%Z)
-echo "date.timezone=$TIMEZONE" > "$DIR/bin/php7/bin/php.ini"
+echo "memory_limit=1024M" >> "$DIR/bin/php7/bin/php.ini"
+echo "date.timezone=$TIMEZONE" >> "$DIR/bin/php7/bin/php.ini"
 echo "short_open_tag=0" >> "$DIR/bin/php7/bin/php.ini"
 echo "asp_tags=0" >> "$DIR/bin/php7/bin/php.ini"
 echo "phar.readonly=0" >> "$DIR/bin/php7/bin/php.ini"
 echo "phar.require_hash=1" >> "$DIR/bin/php7/bin/php.ini"
-#echo "zend_extension=uopz.so" >> "$DIR/bin/php7/bin/php.ini"
+echo "igbinary.compact_strings=0" >> "$DIR/bin/php7/bin/php.ini"
 if [[ "$COMPILE_DEBUG" == "yes" ]]; then
 	echo "zend.assertions=1" >> "$DIR/bin/php7/bin/php.ini"
 else
 	echo "zend.assertions=-1" >> "$DIR/bin/php7/bin/php.ini"
 fi
+echo "error_reporting=-1" >> "$DIR/bin/php7/bin/php.ini"
+echo "display_errors=1" >> "$DIR/bin/php7/bin/php.ini"
+echo "display_startup_errors=1" >> "$DIR/bin/php7/bin/php.ini"
+echo "recursionguard.enabled=0 ;disabled due to minor performance impact, only enable this if you need it for debugging" >> "$DIR/bin/php7/bin/php.ini"
 
 if [ "$IS_CROSSCOMPILE" != "yes" ] && [ "$DO_STATIC" == "no" ]; then
-	echo ";zend_extension=xdebug.so" >> "$DIR/bin/php7/bin/php.ini"
-	echo "zend_extension=opcache.so" >> "$DIR/bin/php7/bin/php.ini"
+	echo ";zend_extension=opcache.so" >> "$DIR/bin/php7/bin/php.ini"
 	echo "opcache.enable=1" >> "$DIR/bin/php7/bin/php.ini"
 	echo "opcache.enable_cli=1" >> "$DIR/bin/php7/bin/php.ini"
 	echo "opcache.save_comments=1" >> "$DIR/bin/php7/bin/php.ini"
@@ -988,22 +975,39 @@ if [ "$IS_CROSSCOMPILE" != "yes" ] && [ "$DO_STATIC" == "no" ]; then
 	echo "opcache.optimization_level=0xffffffff" >> "$DIR/bin/php7/bin/php.ini"
 fi
 
-if [ "$HAVE_CURL" == "shared,/usr" ]; then
-	echo "extension=curl.so" >> "$DIR/bin/php7/bin/php.ini"
+echo " done!"
+
+if [[ "$DO_STATIC" != "yes" ]] && [[ "$COMPILE_DEBUG" == "yes" ]]; then
+	echo -n "[xdebug] checking..."
+	cd "$DIR/install_data/php/ext/xdebug"
+	$DIR/bin/php7/bin/phpize >> "$DIR/install.log" 2>&1
+	./configure --with-php-config="$DIR/bin/php7/bin/php-config" >> "$DIR/install.log" 2>&1
+	echo -n " compiling..."
+	make -j4 >> "$DIR/install.log" 2>&1
+	echo -n " installing..."
+	make install >> "$DIR/install.log" 2>&1
+	echo "zend_extension=xdebug.so" >> "$DIR/bin/php7/bin/php.ini"
+	echo " done!"
 fi
 
-echo " done!"
 cd "$DIR"
-echo -n "[INFO] Cleaning up..."
-rm -r -f install_data/ >> "$DIR/install.log" 2>&1
-rm -f bin/php7/bin/curl* >> "$DIR/install.log" 2>&1
-rm -f bin/php7/bin/curl-config* >> "$DIR/install.log" 2>&1
-rm -f bin/php7/bin/c_rehash* >> "$DIR/install.log" 2>&1
-rm -f bin/php7/bin/openssl* >> "$DIR/install.log" 2>&1
-rm -r -f bin/php7/man >> "$DIR/install.log" 2>&1
-rm -r -f bin/php7/php >> "$DIR/install.log" 2>&1
-rm -r -f bin/php7/misc >> "$DIR/install.log" 2>&1
+if [ "$DO_CLEANUP" == "yes" ]; then
+	echo -n "[INFO] Cleaning up..."
+	rm -r -f install_data/ >> "$DIR/install.log" 2>&1
+	rm -f bin/php7/bin/curl* >> "$DIR/install.log" 2>&1
+	rm -f bin/php7/bin/curl-config* >> "$DIR/install.log" 2>&1
+	rm -f bin/php7/bin/c_rehash* >> "$DIR/install.log" 2>&1
+	rm -f bin/php7/bin/openssl* >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/man >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/share/man >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/php >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/misc >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/lib/*.a >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/lib/*.la >> "$DIR/install.log" 2>&1
+	rm -r -f bin/php7/include >> "$DIR/install.log" 2>&1
+	echo " done!"
+fi
+
 date >> "$DIR/install.log" 2>&1
-echo " done!"
-echo "[PocketMine] You should start the server now using \"./start.sh.\""
+echo "[PocketMine] You should start the server now using \"./start.sh\"."
 echo "[PocketMine] If it doesn't work, please send the \"install.log\" file to the Bug Tracker."
