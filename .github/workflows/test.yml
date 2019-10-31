@@ -12,7 +12,7 @@ jobs:
     - name: Run a one-line script
       run: |
         sudo apt update
-        sudo apt install -y make autoconf automake libtool m4 wget gzip bzip2 bison g++ git cmake
+        sudo apt install -y make autoconf automake libtool m4 wget gzip bzip2 bison g++ git cmake libtool-bin libtool
     - name: Run a multi-line script
       run: |
         chmod +x ./compile.sh
