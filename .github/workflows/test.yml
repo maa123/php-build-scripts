@@ -10,7 +10,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Run a one-line script
-      run: sudo apt install -y make autoconf automake libtool m4 wget getconf gzip bzip2 bison g++ git cmake
+      run: |
+        sudo apt update
+        sudo apt install -y make autoconf automake libtool m4 wget gzip bzip2 bison g++ git cmake
     - name: Run a multi-line script
       run: |
         chmod +x ./compile.sh
