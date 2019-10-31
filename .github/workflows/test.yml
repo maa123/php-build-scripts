@@ -17,3 +17,8 @@ jobs:
       run: |
         chmod +x ./compile.sh
         ./compile.sh
+    - name: Save
+      uses: actions/upload-artifact@master
+      with:
+        name: linux-php-bin
+        path: bin
